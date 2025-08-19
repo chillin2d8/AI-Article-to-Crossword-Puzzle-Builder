@@ -1,0 +1,5 @@
+{
+  "name": "AI Crossword Generator",
+  "description": "An application that takes an article or text, summarizes it, and generates an interactive crossword puzzle based on its key terms and concepts.",
+  "requestFramePermissions": []
+}
