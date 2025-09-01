@@ -1,6 +1,7 @@
 import type { CrosswordWord, GridData, PlacedWord } from '../types';
+import { CROSSWORD_CONFIG } from '../config';
 
-const GRID_SIZE = 25; // Start with a medium grid, then trim
+const GRID_SIZE = CROSSWORD_CONFIG.INITIAL_GRID_SIZE; // Start with a medium grid, then trim
 
 export const generateGrid = (words: CrosswordWord[]): GridData => {
   const sortedWords = [...words].sort((a, b) => b.word.length - a.word.length);

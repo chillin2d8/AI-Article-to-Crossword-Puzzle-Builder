@@ -1,5 +1,5 @@
 {
-  "name": "AI Crossword Generator",
-  "description": "An application that takes an article or text, summarizes it, and generates an interactive crossword puzzle based on its key terms and concepts.",
+  "name": "PLAY ⚡ A spark in the silence",
+  "description": "PLAY (Puzzle Learning Aids for Youth) is a spark in the silence for educators. It takes any article or text and generates an interactive crossword puzzle and summary to make learning fun.",
   "requestFramePermissions": []
 }

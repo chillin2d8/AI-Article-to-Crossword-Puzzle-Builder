@@ -1,5 +1,5 @@
 {
-  "name": "ai-crossword-generator",
+  "name": "play-⚡-a-spark-in-the-silence",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -13,7 +13,16 @@
     "react-dom": "^19.1.1",
     "@google/genai": "^1.14.0",
     "jspdf": "2.5.1",
-    "html2canvas": "1.4.1"
+    "html2canvas": "1.4.1",
+    "zod": "3.23.8",
+    "vitest": "^3.2.4",
+    "@testing-library/jest-dom": "^6.7.0",
+    "@testing-library/react": "^16.3.0",
+    "firebase": "^12.1.0",
+    "@firebase/firestore": "^4.9.1",
+    "@firebase/app": "^0.14.2",
+    "@firebase/auth": "^1.11.0",
+    "@firebase/functions": "^0.13.1"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
