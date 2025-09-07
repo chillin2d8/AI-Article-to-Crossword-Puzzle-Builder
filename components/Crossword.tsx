@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import type { GridData, PlacedWord } from '../types';
 
@@ -7,7 +8,7 @@ interface CrosswordProps {
   showSolutions?: boolean;
 }
 
-export const Crossword: React.FC<CrosswordProps> = ({ gridData, showSolutions = false }) => {
+export const Crossword: React.FC<CrosswordProps> = React.memo(({ gridData, showSolutions = false }) => {
   const { grid, placedWords, rows, cols } = gridData;
   const [userGrid, setUserGrid] = useState<string[][]>(() =>
     Array(rows).fill(null).map(() => Array(cols).fill(''))
@@ -155,4 +156,4 @@ export const Crossword: React.FC<CrosswordProps> = ({ gridData, showSolutions = 
       )}
     </div>
   );
-};
+});

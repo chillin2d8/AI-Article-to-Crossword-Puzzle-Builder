@@ -28,7 +28,17 @@ const App: React.FC = () => {
   const [authFlowActive, setAuthFlowActive] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+  // --- DEVELOPER TEST MODE ---
+  // To bypass login for rapid testing, add `?test=true` to the URL.
+  const urlParams = new URLSearchParams(window.location.search);
+  const isTestMode = urlParams.get('test') === 'true';
+
   useEffect(() => {
+    if (isTestMode) {
+      setIsLoading(false);
+      return; // Skip all auth listeners in test mode
+    }
+
     let firestoreUnsubscribe: Unsubscribe | null = null;
 
     const authUnsubscribe = authService.onAuthChange((firebaseUser) => {
@@ -69,15 +79,20 @@ const App: React.FC = () => {
             } else {
                 // Get the product name from the first active subscription
                 const subscription = snapshot.docs[0].data();
-                const productName = subscription.items[0].price.product.name;
-
-                if (productName === USER_TIERS.Monthly.name) {
-                    setTier('Monthly');
-                } else if (productName === USER_TIERS.Yearly.name) {
-                    setTier('Yearly');
+                // Defensive coding: ensure the nested properties exist before access to prevent crashes
+                if (subscription && subscription.items && subscription.items[0] && subscription.items[0].price && subscription.items[0].price.product && subscription.items[0].price.product.name) {
+                    const productName = subscription.items[0].price.product.name;
+                    if (productName === USER_TIERS.Monthly.name) {
+                        setTier('Monthly');
+                    } else if (productName === USER_TIERS.Yearly.name) {
+                        setTier('Yearly');
+                    } else {
+                        console.warn(`Unknown product name: "${productName}". Defaulting to Free.`);
+                        setTier('Free');
+                    }
                 } else {
-                    console.warn(`Unknown product name: "${productName}". Defaulting to Free.`);
-                    setTier('Free');
+                     console.warn("Subscription data is malformed. Defaulting to Free.", subscription);
+                     setTier('Free');
                 }
             }
             setIsLoading(false);
@@ -102,7 +117,7 @@ const App: React.FC = () => {
             firestoreUnsubscribe();
         }
     };
-  }, []);
+  }, [isTestMode]);
 
   const handleStartAuth = () => {
     setAuthFlowActive(true);
@@ -134,13 +149,35 @@ const App: React.FC = () => {
         return <MainLandingPage onStartAuth={handleStartAuth} />;
     }
   };
+  
+  if (isTestMode) {
+    // Simulate a premium user for full feature access during testing
+    const mockPremiumUser: User = {
+      uid: 'test-user-premium',
+      email: 'test-premium@play-app.app',
+      displayName: 'Premium Tester',
+      emailVerified: true, isAnonymous: false, providerData: [], metadata: {},
+      photoURL: null, phoneNumber: null, providerId: 'test', tenantId: null,
+      refreshToken: 'mock-token', delete: async () => {}, getIdToken: async () => 'mock-id-token',
+      getIdTokenResult: async () => ({} as any), reload: async () => {}, toJSON: () => ({}),
+    };
+
+    return (
+      <AppContent
+        user={mockPremiumUser}
+        tier={'Yearly'} // Grant top tier for testing all features
+        onSignOut={() => alert('Test mode sign out.')}
+      />
+    );
+  }
+
 
   if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-700">Loading Application...</div>;
   }
 
   if (user && tier) {
-    return <AppContent tier={tier} onSignOut={handleSignOut} />;
+    return <AppContent user={user} tier={tier} onSignOut={handleSignOut} />;
   }
   
   if (authFlowActive) {

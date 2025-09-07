@@ -101,3 +101,31 @@ export const getContent = async (
         );
     }
 };
+
+// --- CONTENT MODERATION ---
+
+// A list of words to be blocked for content moderation.
+const blocklist: string[] = [
+    'anal', 'anus', 'arse', 'ass', 'asshole', 'bastard', 'bitch', 'biatch', 'bloody',
+    'bollock', 'bollok', 'boner', 'boob', 'bugger', 'bum', 'butt', 'buttplug', 'clitoris',
+    'cock', 'crap', 'cunt', 'damn', 'dick', 'dildo', 'dyke', 'fag', 'feck', 'fellate',
+    'fellatio', 'felching', 'fuck', 'fudgepacker', 'flange', 'goddamn', 'hell', 'homo',
+    'jerk', 'jizz', 'knobend', 'labia', 'lmao', 'lmfao', 'muff', 'nigger', 'nigga',
+    'omg', 'penis', 'piss', 'poop', 'prick', 'pube', 'pussy', 'queer', 'scrotum', 'sex',
+    'shit', 'sh1t', 'slut', 'smegma', 'spunk', 'tit', 'turd', 'twat', 'vagina', 'wank',
+    'whore', 'wtf'
+];
+
+// Create a regular expression for a case-insensitive, whole-word match.
+const profanityRegex = new RegExp(`\\b(${blocklist.join('|')})\\b`, 'gi');
+
+/**
+ * Checks if a given text contains any profanity from the blocklist.
+ * @param text The text to scan.
+ * @returns True if profanity is found, false otherwise.
+ */
+export const containsProfanity = (text: string): boolean => {
+    // Reset the regex state before testing to ensure reliability across multiple calls.
+    profanityRegex.lastIndex = 0;
+    return profanityRegex.test(text);
+};

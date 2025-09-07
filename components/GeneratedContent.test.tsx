@@ -1,4 +1,5 @@
 
+
 import '@testing-library/jest-dom/vitest';
 import React from 'react';
 import { render, screen } from '@testing-library/react';
@@ -20,7 +21,8 @@ describe('GeneratedContent Component', () => {
     onDownloadPdf: vi.fn(),
     showSolutions: false,
     onToggleSolutions: vi.fn(),
-    onReset: vi.fn(),
+    // FIX: Replaced onReset with onStartOver to match the component's props.
+    onStartOver: vi.fn(),
     onSummaryChange: vi.fn(),
   };
 
@@ -34,9 +36,10 @@ describe('GeneratedContent Component', () => {
     expect(screen.getByText(mockGeneratedData.summary)).toBeInTheDocument();
   });
 
-  it('renders the "Start Over" button', () => {
+  it('renders the "Back to Dashboard" button', () => {
     render(<GeneratedContent {...defaultProps} />);
-    expect(screen.getByText('Start Over')).toBeInTheDocument();
+    // FIX: Updated the button text to match the actual component implementation.
+    expect(screen.getByText('Back to Dashboard')).toBeInTheDocument();
   });
 
 
@@ -44,10 +47,10 @@ describe('GeneratedContent Component', () => {
     render(<GeneratedContent {...defaultProps} />);
 
     // Check for puzzle heading
-    expect(screen.getByText('Crossword Puzzle')).toBeInTheDocument();
+    expect(screen.getByText(`${mockGeneratedData.title} - Crossword`)).toBeInTheDocument();
 
     // Check for a specific clue
-    const clue = mockGeneratedData.gridData.placedWords[0].clue;
+    const clue = mockGeneratedData.gridData.placedWords[0].clue_text;
     expect(screen.getByText(new RegExp(clue))).toBeInTheDocument();
   });
 
@@ -59,7 +62,7 @@ describe('GeneratedContent Component', () => {
 
     render(<GeneratedContent {...defaultProps} data={dataWithoutWords} />);
 
-    expect(screen.queryByText('Crossword Puzzle')).not.toBeInTheDocument();
+    expect(screen.queryByText(`${mockGeneratedData.title} - Crossword`)).not.toBeInTheDocument();
   });
 
   it('displays the crossword warning when present', () => {
@@ -69,7 +72,7 @@ describe('GeneratedContent Component', () => {
     };
     render(<GeneratedContent {...defaultProps} data={dataWithWarning} />);
 
-    expect(screen.getByText('Crossword Notice')).toBeInTheDocument();
+    expect(screen.getByText('Puzzle Notice')).toBeInTheDocument();
     expect(screen.getByText('This is a test warning.')).toBeInTheDocument();
   });
 });

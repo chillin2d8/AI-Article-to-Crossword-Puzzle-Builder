@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { USER_TIERS, APP_CONFIG } from '../../config';
 import { UserTierConfig } from '../../types';
@@ -11,7 +10,7 @@ interface LandingPageLayoutProps {
   pageType: 'landing' | 'legal';
 }
 
-const TierCard: React.FC<{ tier: UserTierConfig; onSelect: () => void, isFeatured: boolean }> = ({ tier, onSelect, isFeatured }) => (
+const TierCard: React.FC<{ tier: UserTierConfig; onSelect: () => void, isFeatured: boolean }> = React.memo(({ tier, onSelect, isFeatured }) => (
     <div className={`p-8 rounded-2xl border flex flex-col ${isFeatured ? 'bg-slate-900 text-white border-slate-700' : 'bg-white border-slate-200'}`}>
         <h3 className="text-lg font-semibold">{tier.name}</h3>
         <p className={`mt-2 h-12 ${isFeatured ? 'text-slate-400' : 'text-slate-500'}`}>{tier.features[0]}</p>
@@ -26,19 +25,40 @@ const TierCard: React.FC<{ tier: UserTierConfig; onSelect: () => void, isFeature
             Get Started
         </button>
         <ul className={`mt-8 space-y-3 text-sm leading-6 flex-grow ${isFeatured ? 'text-slate-300' : 'text-slate-600'}`}>
-            {tier.features.slice(1).map((feature) => (
-                <li key={feature} className="flex gap-x-3">
-                    <svg className="h-6 w-5 flex-none text-indigo-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                        <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.052-.143z" clipRule="evenodd" />
-                    </svg>
-                    {feature}
-                </li>
-            ))}
+            {tier.features.slice(1).map((feature) => {
+                const isNew = feature.startsWith('NEW:');
+                const featureText = isNew ? feature.substring(4).trim() : feature;
+                const underlineParts = featureText.split('__');
+
+                return (
+                    <li key={feature} className="flex gap-x-3">
+                        <svg className="h-6 w-5 flex-none text-indigo-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.052-.143z" clipRule="evenodd" />
+                        </svg>
+                        {isNew ? (
+                            <span className="font-semibold">
+                                <span className={`font-bold ${isFeatured ? 'text-yellow-400' : 'text-amber-500'} animate-pulse mr-1`}>NEW:</span>
+                                {underlineParts.length > 1 ? (
+                                    <>
+                                        {underlineParts[0]}
+                                        <span className="underline">{underlineParts[1]}</span>
+                                        {underlineParts[2]}
+                                    </>
+                                ) : (
+                                    featureText
+                                )}
+                            </span>
+                        ) : (
+                            feature
+                        )}
+                    </li>
+                );
+            })}
         </ul>
     </div>
-);
+));
 
-export const LandingPageLayout: React.FC<LandingPageLayoutProps> = ({ heroContent, children, footerContent, onStartAuth, pageType }) => {
+export const LandingPageLayout: React.FC<LandingPageLayoutProps> = React.memo(({ heroContent, children, footerContent, onStartAuth, pageType }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const handleNavLinkClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
@@ -143,11 +163,11 @@ export const LandingPageLayout: React.FC<LandingPageLayoutProps> = ({ heroConten
                             </div>
                             <div>
                                 <h3 className="text-2xl font-semibold mb-2">2. Customize Your Lesson</h3>
-                                <p className="text-slate-600">Select the target reading level and the number of crossword words to perfectly match your curriculum needs.</p>
+                                <p className="text-slate-600">Select the target reading level, puzzle type, and number of words to perfectly match your curriculum needs.</p>
                             </div>
                             <div>
                                 <h3 className="text-2xl font-semibold mb-2">3. Generate & Go!</h3>
-                                <p className="text-slate-600">In under a minute, our AI delivers a complete, multi-page activity packet, including a summary, images, and a custom crossword.</p>
+                                <p className="text-slate-600">In under a minute, our AI delivers a complete, multi-page activity packet, including a summary, images, and a custom puzzle.</p>
                             </div>
                         </div>
                     </div>
@@ -216,4 +236,4 @@ export const LandingPageLayout: React.FC<LandingPageLayoutProps> = ({ heroConten
       </footer>
     </div>
   );
-};
+});

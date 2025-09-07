@@ -3,6 +3,8 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { StoryPage } from '../components/pdf/StoryPage';
 import { PuzzlePage } from '../components/pdf/PuzzlePage';
+import { WordSearchPage } from '../components/pdf/WordSearchPage';
+import { WordScramblePage } from '../components/pdf/WordScramblePage';
 import { GeneratedData, PdfGenerationError, UserTier } from '../types';
 import { editForFit } from './geminiService';
 import jsPDF from 'jspdf';
@@ -225,7 +227,7 @@ export const generatePdf = async (data: GeneratedData, tier: UserTier, setLoadin
         const localPageImages: string[] = [];
         const title = data.title;
         
-        setLoadingMessage('Generating story page (1/3)...');
+        // --- Story Page Generation (Common to all) ---
         let storyData = { ...safeData };
         
         const { container: checkContainer, unmount: unmountCheck } = renderComponentToDiv('pdf-story-container-check', StoryPage, { data: storyData, tier: tier });
@@ -247,17 +249,79 @@ export const generatePdf = async (data: GeneratedData, tier: UserTier, setLoadin
             }
         }
         
-        const storyCanvas = await renderComponentToCanvas('pdf-story-container', StoryPage, { data: storyData, tier: tier });
-        localPageImages.push(storyCanvas.toDataURL('image/png'));
-
-        if (data.gridData.placedWords.length > 0) {
-            setLoadingMessage('Generating puzzle page (2/3)...');
-            const puzzleCanvas = await renderComponentToCanvas('pdf-puzzle-container', PuzzlePage, { data: safeData, showSolutions: false, tier: tier });
-            localPageImages.push(puzzleCanvas.toDataURL('image/png'));
+        const hasCrossword = data.gridData.placedWords.length > 0;
+        const hasWordSearch = (data.wordSearchData?.wordList?.length || 0) > 0;
+        const hasWordScramble = (data.wordScrambleData?.wordList?.length || 0) > 0;
+        const isLaunchEdition = data.puzzleType === 'launchedition';
         
-            setLoadingMessage('Generating solution page (3/3)...');
-            const solutionCanvas = await renderComponentToCanvas('pdf-solution-container', PuzzlePage, { data: safeData, showSolutions: true, tier: tier });
-            localPageImages.push(solutionCanvas.toDataURL('image/png'));
+        if (isLaunchEdition) {
+            const puzzleCanvases: HTMLCanvasElement[] = [];
+            const solutionCanvases: HTMLCanvasElement[] = [];
+
+            // 1. Story Page (always first)
+            setLoadingMessage('Generating story page...');
+            const storyCanvas = await renderComponentToCanvas('pdf-story-container', StoryPage, { data: storyData, tier: tier });
+            localPageImages.push(storyCanvas.toDataURL('image/png'));
+            
+            // 2. Generate all puzzle pages
+            setLoadingMessage('Generating puzzle pages...');
+            if (hasCrossword) {
+                puzzleCanvases.push(await renderComponentToCanvas('pdf-puzzle-container', PuzzlePage, { data: safeData, showSolutions: false, tier: tier }));
+            }
+            if (hasWordSearch) {
+                puzzleCanvases.push(await renderComponentToCanvas('pdf-wordsearch-container', WordSearchPage, { data: safeData, showSolutions: false, tier: tier }));
+            }
+            if (hasWordScramble) {
+                puzzleCanvases.push(await renderComponentToCanvas('pdf-wordscramble-container', WordScramblePage, { data: safeData, showSolutions: false, tier: tier }));
+            }
+            
+            // 3. Generate all solution pages
+            setLoadingMessage('Generating solution pages...');
+            if (hasCrossword) {
+                solutionCanvases.push(await renderComponentToCanvas('pdf-solution-container', PuzzlePage, { data: safeData, showSolutions: true, tier: tier }));
+            }
+            if (hasWordSearch) {
+                solutionCanvases.push(await renderComponentToCanvas('pdf-wordsearch-solution-container', WordSearchPage, { data: safeData, showSolutions: true, tier: tier }));
+            }
+            if (hasWordScramble) {
+                solutionCanvases.push(await renderComponentToCanvas('pdf-wordscramble-solution-container', WordScramblePage, { data: safeData, showSolutions: true, tier: tier }));
+            }
+
+            // 4. Assemble in order: story, puzzles, solutions
+            const puzzleImages = puzzleCanvases.map(canvas => canvas.toDataURL('image/png'));
+            const solutionImages = solutionCanvases.map(canvas => canvas.toDataURL('image/png'));
+            localPageImages.push(...puzzleImages, ...solutionImages);
+
+        } else {
+             setLoadingMessage('Generating story page (1/3)...');
+             const storyCanvas = await renderComponentToCanvas('pdf-story-container', StoryPage, { data: storyData, tier: tier });
+             localPageImages.push(storyCanvas.toDataURL('image/png'));
+
+            if (data.puzzleType === 'crossword' && hasCrossword) {
+                setLoadingMessage('Generating puzzle page (2/3)...');
+                const puzzleCanvas = await renderComponentToCanvas('pdf-puzzle-container', PuzzlePage, { data: safeData, showSolutions: false, tier: tier });
+                localPageImages.push(puzzleCanvas.toDataURL('image/png'));
+            
+                setLoadingMessage('Generating solution page (3/3)...');
+                const solutionCanvas = await renderComponentToCanvas('pdf-solution-container', PuzzlePage, { data: safeData, showSolutions: true, tier: tier });
+                localPageImages.push(solutionCanvas.toDataURL('image/png'));
+            } else if (data.puzzleType === 'wordsearch' && hasWordSearch) {
+                setLoadingMessage('Generating puzzle page (2/3)...');
+                const puzzleCanvas = await renderComponentToCanvas('pdf-wordsearch-container', WordSearchPage, { data: safeData, showSolutions: false, tier: tier });
+                localPageImages.push(puzzleCanvas.toDataURL('image/png'));
+
+                setLoadingMessage('Generating solution page (3/3)...');
+                const solutionCanvas = await renderComponentToCanvas('pdf-wordsearch-solution-container', WordSearchPage, { data: safeData, showSolutions: true, tier: tier });
+                localPageImages.push(solutionCanvas.toDataURL('image/png'));
+            } else if (data.puzzleType === 'wordscramble' && hasWordScramble) {
+                setLoadingMessage('Generating puzzle page (2/3)...');
+                const puzzleCanvas = await renderComponentToCanvas('pdf-wordscramble-container', WordScramblePage, { data: safeData, showSolutions: false, tier: tier });
+                localPageImages.push(puzzleCanvas.toDataURL('image/png'));
+
+                setLoadingMessage('Generating solution page (3/3)...');
+                const solutionCanvas = await renderComponentToCanvas('pdf-wordscramble-solution-container', WordScramblePage, { data: safeData, showSolutions: true, tier: tier });
+                localPageImages.push(solutionCanvas.toDataURL('image/png'));
+            }
         }
         
         setLoadingMessage('Assembling PDF... (UI may freeze)');

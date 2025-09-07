@@ -1,3 +1,6 @@
+
+
+
 import React from 'react';
 import type { GeneratedData, UserTier } from '../../types';
 import { BRAND_WATERMARK_LOGO_URI } from '../../config';
@@ -10,22 +13,22 @@ interface PuzzlePageProps {
 
 const CELL_SIZE = 22; // px
 
-const PdfHeader: React.FC = () => (
+const PdfHeader: React.FC = React.memo(() => (
     <div style={{ textAlign: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', marginBottom: '16px' }}>
         <h2 style={{ fontSize: '16px', fontWeight: 'bold', color: '#1a202c', margin: 0 }}>PLAY ⚡</h2>
         <p style={{ fontSize: '10px', color: '#718096', margin: 0, marginTop: '2px' }}>
             Puzzle Learning Aids for Youth &bull; www.play-app.app
         </p>
     </div>
-);
+));
 
-const PdfFooter: React.FC = () => (
+const PdfFooter: React.FC = React.memo(() => (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '10px', color: '#a0aec0', marginTop: 'auto', paddingTop: '16px', borderTop: '1px solid #e2e8f0' }}>
         <span>Generated with play-app.app</span>
     </div>
-);
+));
 
-const StaticCrosswordGrid: React.FC<{ gridData: GeneratedData['gridData'], showSolutions: boolean }> = ({ gridData, showSolutions }) => {
+const StaticCrosswordGrid: React.FC<{ gridData: GeneratedData['gridData'], showSolutions: boolean }> = React.memo(({ gridData, showSolutions }) => {
     const { grid, placedWords, rows, cols } = gridData;
 
     const wordNumbers: { [key: string]: number } = {};
@@ -51,7 +54,10 @@ const StaticCrosswordGrid: React.FC<{ gridData: GeneratedData['gridData'], showS
         fontSize: '12px',
         fontWeight: 'bold',
         textTransform: 'uppercase',
-        color: '#1a202c'
+        color: '#1a202c',
+        // FIX: Added padding for better vertical centering of letters.
+        paddingTop: '2px',
+        boxSizing: 'border-box',
     };
     
     return (
@@ -61,6 +67,8 @@ const StaticCrosswordGrid: React.FC<{ gridData: GeneratedData['gridData'], showS
                 gridTemplateColumns: `repeat(${cols}, ${CELL_SIZE}px)`,
                 border: '2px solid #4a5568',
                 margin: '0 auto',
+                // FIX: Added padding to prevent bottom row letters from being clipped by the border.
+                paddingBottom: '2px',
             }}
         >
             {grid.map((gridRow, r) =>
@@ -91,10 +99,10 @@ const StaticCrosswordGrid: React.FC<{ gridData: GeneratedData['gridData'], showS
             )}
         </div>
     );
-};
+});
 
 
-export const PuzzlePage: React.FC<PuzzlePageProps> = ({ data, showSolutions, tier }) => {
+export const PuzzlePage: React.FC<PuzzlePageProps> = React.memo(({ data, showSolutions, tier }) => {
   const acrossClues = data.gridData.placedWords.filter(w => w.direction === 'across').sort((a,b) => a.number - b.number);
   const downClues = data.gridData.placedWords.filter(w => w.direction === 'down').sort((a,b) => a.number - b.number);
   const isFreeTier = tier === 'Free';
@@ -132,7 +140,7 @@ export const PuzzlePage: React.FC<PuzzlePageProps> = ({ data, showSolutions, tie
                <div style={{ fontSize: '11px', lineHeight: '1.4' }}>
                   <h3 style={{ fontWeight: 'bold', fontSize: '14px', marginBottom: '8px' }}>Across</h3>
                   <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                      {acrossClues.map(word => <li key={`across-${word.number}`} style={{ wordBreak: 'break-word' }}><span style={{fontWeight: 'bold'}}>{word.number}.</span> {word.clue}</li>)}
+                      {acrossClues.map(word => <li key={`across-${word.number}`} style={{ wordBreak: 'break-word' }}><span style={{fontWeight: 'bold'}}>{word.number}.</span> {word.clue_text}</li>)}
                   </ul>
               </div>
             </div>
@@ -143,7 +151,7 @@ export const PuzzlePage: React.FC<PuzzlePageProps> = ({ data, showSolutions, tie
               <div style={{ fontSize: '11px', lineHeight: '1.4' }}>
                   <h3 style={{ fontWeight: 'bold', fontSize: '14px', marginBottom: '8px' }}>Down</h3>
                   <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                      {downClues.map(word => <li key={`down-${word.number}`} style={{ wordBreak: 'break-word' }}><span style={{fontWeight: 'bold'}}>{word.number}.</span> {word.clue}</li>)}
+                      {downClues.map(word => <li key={`down-${word.number}`} style={{ wordBreak: 'break-word' }}><span style={{fontWeight: 'bold'}}>{word.number}.</span> {word.clue_text}</li>)}
                   </ul>
               </div>
             </div>
@@ -158,4 +166,4 @@ export const PuzzlePage: React.FC<PuzzlePageProps> = ({ data, showSolutions, tie
         </div>
     </div>
   );
-};
+});

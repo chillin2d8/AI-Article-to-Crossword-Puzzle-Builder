@@ -1,9 +1,10 @@
-import type { CrosswordWord, GridData, PlacedWord } from '../types';
+// FIX: Changed `CrosswordWord` to `EnrichedVocabularyItem` to match the correct data type.
+import type { EnrichedVocabularyItem, GridData, PlacedWord } from '../types';
 import { CROSSWORD_CONFIG } from '../config';
 
 const GRID_SIZE = CROSSWORD_CONFIG.INITIAL_GRID_SIZE; // Start with a medium grid, then trim
 
-export const generateGrid = (words: CrosswordWord[]): GridData => {
+export const generateGrid = (words: EnrichedVocabularyItem[]): GridData => {
   const sortedWords = [...words].sort((a, b) => b.word.length - a.word.length);
   let grid: (string | null)[][] = Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(null));
   const placedWords: PlacedWord[] = [];

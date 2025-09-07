@@ -1,6 +1,6 @@
-
 import React from 'react';
 import { UI_CONFIG } from '../config';
+import { PuzzleType, UserTier } from '../types';
 
 interface ArticleInputProps {
   articleText: string;
@@ -11,13 +11,26 @@ interface ArticleInputProps {
   setGradeLevel: (level: string) => void;
   wordCount: number;
   setWordCount: (count: number) => void;
+  puzzleType: PuzzleType;
+  setPuzzleType: (type: PuzzleType) => void;
+  tier: UserTier;
 }
 
-export const ArticleInput: React.FC<ArticleInputProps> = ({ 
+export const ArticleInput: React.FC<ArticleInputProps> = React.memo(({ 
     articleText, setArticleText, onGenerate, isLoading, 
     gradeLevel, setGradeLevel, wordCount, setWordCount,
+    puzzleType, setPuzzleType, tier
 }) => {
   
+  const availablePuzzleTypes = UI_CONFIG.PUZZLE_TYPES.filter(opt => {
+    // The 'launchedition' puzzle type should only be an option for 'Yearly' subscribers.
+    if (opt.value === 'launchedition') {
+      return tier === 'Yearly';
+    }
+    // All other puzzle types are available to everyone.
+    return true;
+  });
+
   return (
     <div className="flex flex-col space-y-6">
       <div>
@@ -28,7 +41,7 @@ export const ArticleInput: React.FC<ArticleInputProps> = ({
           id="article-input"
           value={articleText}
           onChange={(e) => setArticleText(e.target.value)}
-          placeholder="Enter text or a URL to generate a summary, illustrations, and a crossword puzzle..."
+          placeholder="Enter text or a URL to generate a summary, illustrations, and a puzzle..."
           className="mt-2 w-full h-48 p-4 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 resize-y bg-white text-slate-900"
           disabled={isLoading}
         />
@@ -36,7 +49,26 @@ export const ArticleInput: React.FC<ArticleInputProps> = ({
 
       <div className="space-y-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
         <p className="text-lg font-semibold text-slate-700">Generation Options</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label htmlFor="puzzle-type" className="block text-sm font-medium text-slate-700 mb-1">Puzzle Type</label>
+            <select
+              id="puzzle-type"
+              value={puzzleType}
+              onChange={(e) => setPuzzleType(e.target.value as PuzzleType)}
+              disabled={isLoading}
+              className="w-full p-2 border border-slate-300 rounded-md bg-white focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-slate-100 text-slate-900"
+            >
+              {availablePuzzleTypes.map(opt => {
+                const label = opt.value === 'launchedition' ? `${opt.label} 🚀` : opt.label;
+                return (
+                    <option key={opt.value} value={opt.value}>
+                        {label}
+                    </option>
+                );
+              })}
+            </select>
+          </div>
           <div>
             <label htmlFor="grade-level" className="block text-sm font-medium text-slate-700 mb-1">Reading Level</label>
             <select
@@ -44,7 +76,7 @@ export const ArticleInput: React.FC<ArticleInputProps> = ({
               value={gradeLevel}
               onChange={(e) => setGradeLevel(e.target.value)}
               disabled={isLoading}
-              className="w-full p-2 border border-slate-300 rounded-md bg-white focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-slate-100"
+              className="w-full p-2 border border-slate-300 rounded-md bg-white focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-slate-100 text-slate-900"
             >
               {UI_CONFIG.GRADE_LEVELS.map(opt => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -52,13 +84,13 @@ export const ArticleInput: React.FC<ArticleInputProps> = ({
             </select>
           </div>
            <div>
-            <label htmlFor="word-count" className="block text-sm font-medium text-slate-700 mb-1">Crossword Words</label>
+            <label htmlFor="word-count" className="block text-sm font-medium text-slate-700 mb-1">Number of Words</label>
             <select
               id="word-count"
               value={wordCount}
               onChange={(e) => setWordCount(Number(e.target.value))}
               disabled={isLoading}
-              className="w-full p-2 border border-slate-300 rounded-md bg-white focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-slate-100"
+              className="w-full p-2 border border-slate-300 rounded-md bg-white focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-slate-100 text-slate-900"
             >
               {UI_CONFIG.WORD_COUNTS.map(opt => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -79,4 +111,4 @@ export const ArticleInput: React.FC<ArticleInputProps> = ({
       </div>
     </div>
   );
-};
+});

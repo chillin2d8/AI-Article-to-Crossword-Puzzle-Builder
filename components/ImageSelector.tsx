@@ -1,12 +1,16 @@
 
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { AnalysisData, ImageSearchResult, ImageSelection, UserTier } from '../types';
+// FIX: Replaced AnalysisData with ComprehensiveAnalysisData to match updated types.
+import { ComprehensiveAnalysisData, ImageSearchResult, ImageSelection, UserTier } from '../types';
 import { searchUnsplashImages } from '../services/unsplashService';
 import { searchPexelsImages } from '../services/pexelsService';
 import { USER_TIERS } from '../config';
+import { containsProfanity } from '../services/contentService';
 
 interface ImageSelectorProps {
-    analysisData: AnalysisData;
+    // FIX: Replaced AnalysisData with ComprehensiveAnalysisData.
+    analysisData: ComprehensiveAnalysisData;
     onComplete: (selections: ImageSelection) => void;
     onBack: () => void;
     tier: UserTier;
@@ -20,17 +24,25 @@ const ImagePanel: React.FC<{
     initialSearchQuery: string;
     onSelection: (url: string) => void;
     tier: UserTier;
-}> = ({ title, initialSearchQuery, onSelection, tier }) => {
+    defaultSource?: SearchSource;
+}> = React.memo(({ title, initialSearchQuery, onSelection, tier, defaultSource = 'pexels' }) => {
     const tierConfig = USER_TIERS[tier];
     const [loadingState, setLoadingState] = useState<LoadingState>('idle');
     const [error, setError] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState(initialSearchQuery);
-    const [source, setSource] = useState<SearchSource>('pexels');
+    const [source, setSource] = useState<SearchSource>(defaultSource);
     const [results, setResults] = useState<ImageSearchResult[]>([]);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleSearch = useCallback(async () => {
+        if (containsProfanity(searchTerm)) {
+            setError("Search query contains inappropriate language.");
+            setLoadingState('error');
+            setResults([]); // Clear any previous results
+            return;
+        }
+
         if (!searchTerm.trim()) return;
         setLoadingState('loading');
         setError(null);
@@ -130,10 +142,10 @@ const ImagePanel: React.FC<{
             </div>
         </div>
     );
-};
+});
 
 
-export const ImageSelector: React.FC<ImageSelectorProps> = ({ analysisData, onComplete, onBack, tier }) => {
+export const ImageSelector: React.FC<ImageSelectorProps> = React.memo(({ analysisData, onComplete, onBack, tier }) => {
     const [selections, setSelections] = useState<ImageSelection>({ one: null, two: null });
 
     const handleSelection = (imageNumber: 'one' | 'two', url: string) => {
@@ -160,12 +172,15 @@ export const ImageSelector: React.FC<ImageSelectorProps> = ({ analysisData, onCo
                     initialSearchQuery={analysisData.search_query!}
                     onSelection={(url) => handleSelection('one', url)}
                     tier={tier}
+                    defaultSource="pexels"
                 />
                  <ImagePanel 
                     title="Puzzle Image"
-                    initialSearchQuery={`${analysisData.search_query!}, abstract concept`}
+// FIX: The property 'puzzle_search_query' does not exist on 'ComprehensiveAnalysisData'. The AI only provides a single 'search_query', which will be used for both image panels.
+                    initialSearchQuery={analysisData.search_query!}
                     onSelection={(url) => handleSelection('two', url)}
                     tier={tier}
+                    defaultSource="unsplash"
                 />
             </div>
 
@@ -183,4 +198,4 @@ export const ImageSelector: React.FC<ImageSelectorProps> = ({ analysisData, onCo
             </div>
         </div>
     );
-};
+});

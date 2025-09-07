@@ -1,14 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import { generateGrid } from './crosswordService';
-import { CrosswordWord } from '../types';
+// FIX: Changed `CrosswordWord` to `EnrichedVocabularyItem` and updated test data to match the correct type.
+import { EnrichedVocabularyItem } from '../types';
 
 describe('crosswordService', () => {
   describe('generateGrid', () => {
     it('should generate a valid grid from a list of words', () => {
-      const words: CrosswordWord[] = [
-        { word: 'REACT', clue: 'A JavaScript library for building user interfaces' },
-        { word: 'HOOKS', clue: 'A new addition in React 16.8' },
-        { word: 'STATE', clue: 'An object that represents the parts of the app that can change' },
+      const words: EnrichedVocabularyItem[] = [
+        { word: 'REACT', clue_type: 'Definition', clue_text: 'A JavaScript library for building user interfaces' },
+        { word: 'HOOKS', clue_type: 'Definition', clue_text: 'A new addition in React 16.8' },
+        { word: 'STATE', clue_type: 'Definition', clue_text: 'An object that represents the parts of the app that can change' },
       ];
 
       const gridData = generateGrid(words);

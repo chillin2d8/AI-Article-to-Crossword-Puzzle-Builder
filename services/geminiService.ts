@@ -1,10 +1,8 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
-import { ApiError, ContentError } from '../types';
+import { ApiError, ContentError, ComprehensiveAnalysisData, VocabularyValidationResponse, VocabularyReplacementResponse, EnrichedVocabularyItem, WordSearchReplacementResponse, WordSearchVocabularyItem } from '../types';
 import { AI_CONFIG, STATIC_FALLBACK_IMAGE_DATA_URI } from '../config';
-import { analysisSchema } from "../schemas";
+import { comprehensiveAnalysisSchema, vocabularyValidationSchema, vocabularyReplacementSchema, wordSearchReplacementSchema } from "../schemas";
 import * as Prompts from '../prompts/registry';
-import { AnalysisData } from '../types';
 
 // Per security guidelines, the API key is accessed directly from the execution environment.
 // It is assumed to be pre-configured and valid.
@@ -15,21 +13,47 @@ if (!process.env.API_KEY) {
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 // This schema is used by the Gemini API to structure its JSON output.
-const analysisApiSchema = {
+const comprehensiveApiSchema = {
     type: Type.OBJECT,
     properties: {
         title: { type: Type.STRING },
         summary: { type: Type.STRING },
         search_query: { type: Type.STRING },
-        crossword_words: {
+        enriched_vocabulary: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: { 
+                    word: { type: Type.STRING }, 
+                    clue_type: { type: Type.STRING, enum: ["Definition", "Synonym", "Antonym"] },
+                    clue_text: { type: Type.STRING } 
+                },
+                required: ["word", "clue_type", "clue_text"]
+            }
+        },
+        word_search_vocabulary: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: { 
+                    word: { type: Type.STRING }, 
+                    clue_type: { type: Type.STRING, enum: ["Definition", "Synonym", "Antonym"] },
+                    clue_text: { type: Type.STRING } 
+                },
+                required: ["word", "clue_type", "clue_text"]
+            }
+        },
+        word_scramble_vocabulary: {
             type: Type.ARRAY,
             items: {
                 type: Type.OBJECT,
                 properties: {
                     word: { type: Type.STRING },
-                    clue: { type: Type.STRING }
+                    scrambled_word: { type: Type.STRING },
+                    clue_type: { type: Type.STRING, enum: ["Definition", "Synonym", "Antonym"] },
+                    clue_text: { type: Type.STRING }
                 },
-                required: ["word", "clue"]
+                required: ["word", "scrambled_word", "clue_type", "clue_text"]
             }
         },
         error: { type: Type.STRING, nullable: true },
@@ -37,58 +61,177 @@ const analysisApiSchema = {
     },
 };
 
+const validationApiSchema = {
+    type: Type.ARRAY,
+    items: {
+        type: Type.OBJECT,
+        properties: {
+            word: { type: Type.STRING },
+            status: { type: Type.STRING, enum: ["appropriate", "inappropriate"] },
+            reason: { type: Type.STRING, nullable: true },
+        },
+        required: ["word", "status"],
+    },
+};
+
+const replacementApiSchema = {
+    type: Type.ARRAY,
+    items: {
+        type: Type.OBJECT,
+        properties: {
+            original_word: { type: Type.STRING },
+            replacement_word: { type: Type.STRING },
+            replacement_clue_type: { type: Type.STRING, enum: ["Definition", "Synonym", "Antonym"] },
+            replacement_clue_text: { type: Type.STRING },
+        },
+        required: ["original_word", "replacement_word", "replacement_clue_type", "replacement_clue_text"],
+    }
+};
+
+const performJsonApiCall = async <T>(prompt: string, model: string, apiSchema: object, validationSchema: any): Promise<T> => {
+    const result = await ai.models.generateContent({
+        model,
+        contents: prompt,
+        config: { responseMimeType: "application/json", responseSchema: apiSchema },
+    });
+
+    let jsonText = result.text.trim();
+    let parsedJson;
+
+    try {
+        parsedJson = JSON.parse(jsonText);
+    } catch (parseError: any) {
+        if (parseError instanceof SyntaxError) {
+            console.warn("Initial JSON parse failed. Attempting to repair.", parseError.message);
+            const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                jsonText = jsonMatch[0];
+                try {
+                    parsedJson = JSON.parse(jsonText);
+                } catch (repairError) {
+                     console.error("Failed to parse even the repaired JSON string.", repairError);
+                     throw new ApiError(
+                        "The AI returned a severely malformed JSON response that could not be repaired.",
+                        { cause: repairError }
+                    );
+                }
+            } else {
+                 throw new ApiError(
+                    "The AI returned an invalid data structure that could not be repaired.",
+                    { cause: parseError }
+                );
+            }
+        } else {
+            throw parseError; // Re-throw other errors
+        }
+    }
+
+
+    const validationResult = validationSchema.safeParse(parsedJson);
+
+    if (!validationResult.success) {
+        console.error("Zod validation failed after JSON repair:", validationResult.error.flatten());
+        throw new ApiError(
+            "The AI returned an invalid data structure even after repair.",
+            { cause: validationResult.error }
+        );
+    }
+    return validationResult.data as T;
+};
+
+
 export const analyzeArticle = async (
     articleText: string, 
     options: { gradeLevel: string, wordCount: number }
-): Promise<AnalysisData> => {
+): Promise<ComprehensiveAnalysisData> => {
     try {
-        const prompt = Prompts.getAnalysisPrompt({ 
+        // --- STEP 1: GENERATE INITIAL CONTENT ---
+        const initialPrompt = Prompts.getAnalysisPrompt({ 
             articleText, 
             gradeLevel: options.gradeLevel, 
             wordCount: options.wordCount 
         });
-
-        const result = await ai.models.generateContent({
-            model: AI_CONFIG.TEXT_MODEL,
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: analysisApiSchema,
-            }
-        });
+        let analysisData = await performJsonApiCall<ComprehensiveAnalysisData>(
+            initialPrompt,
+            AI_CONFIG.TEXT_MODEL,
+            comprehensiveApiSchema,
+            comprehensiveAnalysisSchema
+        );
         
-        const jsonText = result.text.trim();
-        const parsedJson = JSON.parse(jsonText);
-
-        const validationResult = analysisSchema.safeParse(parsedJson);
-
-        if (!validationResult.success) {
-            console.error("Zod validation failed:", validationResult.error.flatten());
-            throw new ApiError(
-                "The AI returned an invalid data structure. Please try regenerating.",
-                { cause: validationResult.error }
-            );
-        }
-
-        const validatedData = validationResult.data;
-
-        if (validatedData.error) {
-             const message = validatedData.reason 
-                ? `${validatedData.error} Reason: ${validatedData.reason}.`
-                : validatedData.error;
+        if (analysisData.error) {
+             const message = analysisData.reason 
+                ? `${analysisData.error} Reason: ${analysisData.reason}.`
+                : analysisData.error;
              throw new ContentError(message + " Please provide prose content like a story or report.");
         }
+
+        // --- STEP 2: VALIDATE & CORRECT CROSSWORD VOCABULARY ---
+        if (analysisData.enriched_vocabulary && analysisData.enriched_vocabulary.length > 0) {
+            const wordsToValidate = analysisData.enriched_vocabulary.map(item => item.word);
+            const validationPrompt = Prompts.getVocabularyValidationPrompt({ words: wordsToValidate, gradeLevel: options.gradeLevel });
+            const validationResult = await performJsonApiCall<VocabularyValidationResponse>(validationPrompt, AI_CONFIG.TEXT_MODEL, validationApiSchema, vocabularyValidationSchema);
+            const inappropriateWords = validationResult.filter(v => v.status === 'inappropriate').map(v => v.word);
+
+            if (inappropriateWords.length > 0) {
+                console.warn(`Crossword validation failed for: ${inappropriateWords.join(', ')}. Attempting correction.`);
+                const replacementPrompt = Prompts.getVocabularyReplacementPrompt({ summary: analysisData.summary!, wordsToReplace: inappropriateWords, gradeLevel: options.gradeLevel });
+                const replacements = await performJsonApiCall<VocabularyReplacementResponse>(replacementPrompt, AI_CONFIG.TEXT_MODEL, replacementApiSchema, vocabularyReplacementSchema);
+                const replacementMap = new Map(replacements.map(r => [r.original_word.toUpperCase(), r]));
+                
+                const correctedVocabulary: EnrichedVocabularyItem[] = analysisData.enriched_vocabulary.map(wordObj => {
+                    const replacement = replacementMap.get(wordObj.word.toUpperCase());
+                    return replacement ? {
+                        word: replacement.replacement_word.trim().split(' ')[0].toUpperCase(),
+                        clue_type: replacement.replacement_clue_type,
+                        clue_text: replacement.replacement_clue_text
+                    } : wordObj;
+                });
+                analysisData.enriched_vocabulary = correctedVocabulary;
+            }
+        }
         
-        if (validatedData.crossword_words) {
-            validatedData.crossword_words = validatedData.crossword_words
-                .map((item) => ({
-                    word: item.word.trim().split(' ')[0].toUpperCase(),
-                    clue: item.clue
-                }))
+        // --- STEP 3: VALIDATE & CORRECT WORD SEARCH VOCABULARY ---
+        if (analysisData.word_search_vocabulary && analysisData.word_search_vocabulary.length > 0) {
+            const wordsToValidate = analysisData.word_search_vocabulary.map(item => item.word);
+            const validationPrompt = Prompts.getVocabularyValidationPrompt({ words: wordsToValidate, gradeLevel: options.gradeLevel });
+            const validationResult = await performJsonApiCall<VocabularyValidationResponse>(validationPrompt, AI_CONFIG.TEXT_MODEL, validationApiSchema, vocabularyValidationSchema);
+            const inappropriateWords = validationResult.filter(v => v.status === 'inappropriate').map(v => v.word);
+
+            if (inappropriateWords.length > 0) {
+                 console.warn(`Word Search validation failed for: ${inappropriateWords.join(', ')}. Attempting correction.`);
+                const replacementPrompt = Prompts.getWordSearchReplacementPrompt({ summary: analysisData.summary!, wordsToReplace: inappropriateWords, gradeLevel: options.gradeLevel });
+                const replacements = await performJsonApiCall<WordSearchReplacementResponse>(replacementPrompt, AI_CONFIG.TEXT_MODEL, replacementApiSchema, wordSearchReplacementSchema);
+                const replacementMap = new Map(replacements.map(r => [r.original_word.toUpperCase(), r]));
+                
+                const correctedVocabulary: WordSearchVocabularyItem[] = analysisData.word_search_vocabulary.map(wordObj => {
+                    const replacement = replacementMap.get(wordObj.word.toUpperCase());
+                    return replacement ? {
+                        word: replacement.replacement_word.trim().split(' ')[0].toUpperCase(),
+                        clue_type: replacement.replacement_clue_type,
+                        clue_text: replacement.replacement_clue_text
+                    } : wordObj;
+                });
+                analysisData.word_search_vocabulary = correctedVocabulary;
+            }
+        }
+
+
+        // Final data cleanup
+        if (analysisData.enriched_vocabulary) {
+            analysisData.enriched_vocabulary = analysisData.enriched_vocabulary
+                .map((item) => ({ ...item, word: item.word.trim().split(' ')[0].toUpperCase() }))
+                .filter((item) => item.word.length > 2);
+        }
+        
+        if (analysisData.word_search_vocabulary) {
+            analysisData.word_search_vocabulary = analysisData.word_search_vocabulary
+                .map((item) => ({ ...item, word: item.word.trim().split(' ')[0].toUpperCase() }))
                 .filter((item) => item.word.length > 2);
         }
 
-        return validatedData as AnalysisData; // Zod refine ensures this is safe
+
+        return analysisData;
+
     } catch (err) {
         if (err instanceof ApiError || err instanceof ContentError) {
             throw err;

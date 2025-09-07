@@ -1,17 +1,16 @@
 import { z } from 'zod';
-import { analysisSchema } from './schemas';
-import { USER_TIERS } from './config';
+import { comprehensiveAnalysisSchema, vocabularyValidationSchema, vocabularyReplacementSchema, enrichedVocabularySchema, wordSearchVocabularySchema, wordSearchReplacementSchema, wordScrambleVocabularySchema } from './schemas';
+import { USER_TIERS, UI_CONFIG } from './config';
+import type { Timestamp } from '@firebase/firestore';
 
 export type UserTier = keyof typeof USER_TIERS;
 export type UserTierConfig = typeof USER_TIERS[UserTier];
+export type PuzzleType = typeof UI_CONFIG.PUZZLE_TYPES[number]['value'];
 
+// This is the new, unified, and enriched vocabulary structure.
+export type EnrichedVocabularyItem = z.infer<typeof enrichedVocabularySchema>;
 
-export interface CrosswordWord {
-  word: string;
-  clue: string;
-}
-
-export interface PlacedWord extends CrosswordWord {
+export interface PlacedWord extends EnrichedVocabularyItem {
   row: number;
   col: number;
   direction: 'across' | 'down';
@@ -25,18 +24,58 @@ export interface GridData {
   cols: number;
 }
 
+// --- NEW WORD SEARCH TYPES ---
+// This is the enriched vocabulary structure for Word Search
+export type WordSearchVocabularyItem = z.infer<typeof wordSearchVocabularySchema>;
+
+export interface PlacedWordSearchWord {
+    word: string;
+    row: number;
+    col: number;
+    direction: 'horizontal' | 'vertical' | 'diagonal-down' | 'diagonal-up' | 'horizontal-reverse' | 'vertical-reverse' | 'diagonal-down-reverse' | 'diagonal-up-reverse';
+}
+
+export interface WordSearchData {
+    grid: string[][];
+    placedWords: PlacedWordSearchWord[];
+    wordList: WordSearchVocabularyItem[]; // The full, enriched list for display
+}
+// --- END NEW WORD SEARCH TYPES ---
+
+// --- NEW WORD SCRAMBLE TYPES ---
+export type WordScrambleVocabularyItem = z.infer<typeof wordScrambleVocabularySchema>;
+
+export interface WordScrambleData {
+    wordList: WordScrambleVocabularyItem[];
+}
+// --- END NEW WORD SCRAMBLE TYPES ---
+
+
 // The result from the initial AI analysis, plus a potential warning added by our services.
-export type AnalysisData = z.infer<typeof analysisSchema> & { crosswordWarning?: string | null };
+export type ComprehensiveAnalysisData = z.infer<typeof comprehensiveAnalysisSchema> & { crosswordWarning?: string | null };
+export type VocabularyValidationResponse = z.infer<typeof vocabularyValidationSchema>;
+export type VocabularyReplacementResponse = z.infer<typeof vocabularyReplacementSchema>;
+export type WordSearchReplacementResponse = z.infer<typeof wordSearchReplacementSchema>;
+
 
 export interface GeneratedData {
+  id?: string; // Firestore document ID
   title: string;
   summary: string;
   gradeLevel: string;
-  gridData: GridData;
+  puzzleType: PuzzleType;
+  
+  // Puzzle-specific data
+  gridData: GridData; // Crossword data
+  wordSearchData: WordSearchData; // New Word Search data
+  wordScrambleData: WordScrambleData; // New Word Scramble data
+  
+  analysisData: ComprehensiveAnalysisData; // Store the full analysis
   imageUrlOne: string;
   imageUrlTwo: string;
   searchQuery: string;
   crosswordWarning?: string | null;
+  createdAt?: any; 
 }
 
 // State management types for the reducer
@@ -44,20 +83,26 @@ export interface GeneratorState {
   phase: 'input' | 'selecting-images' | 'final';
   loadingProgress: { [key: string]: string };
   finalData: GeneratedData | null;
-  analysisData: AnalysisData | null;
+  analysisData: ComprehensiveAnalysisData | null;
   error: string | null;
+  activityId: string | null; // To hold the ID for saving
+  pdfDownloadCompleted: boolean;
 }
 
 export type GeneratorAction =
   | { type: 'GENERATE_START' }
   | { type: 'UPDATE_PROGRESS'; payload: { stage: string; message: string } }
   | { type: 'CLEAR_PROGRESS' }
-  | { type: 'ANALYSIS_SUCCESS'; payload: AnalysisData }
+  | { type: 'ANALYSIS_SUCCESS'; payload: ComprehensiveAnalysisData }
   | { type: 'FINALIZE_START' }
-  | { type: 'GENERATE_SUCCESS'; payload: GeneratedData }
+  | { type: 'GENERATE_SUCCESS'; payload: { data: GeneratedData, id: string } }
   | { type: 'GENERATE_ERROR'; payload: string }
-  | { type: 'UPDATE_SUMMARY'; payload: string }
-  | { type: 'RESET' };
+  | { type: 'FINALIZE_ERROR'; payload: string }
+  | { type: 'CLEAR_ERROR' }
+  | { type: 'RESET' }
+  | { type: 'SET_ACTIVITY_FOR_VIEWING'; payload: GeneratedData }
+  | { type: 'PDF_DOWNLOAD_START' }
+  | { type: 'PDF_DOWNLOAD_SUCCESS' };
 
 // Custom Error Classes for specific feedback
 export class ApiError extends Error {
@@ -153,4 +198,29 @@ export interface PexelsSearchResponse {
 export interface SignInCredentials {
     email: string;
     password: string;
+}
+
+export interface SignUpCredentials extends SignInCredentials {
+    fullName: string;
+}
+
+export interface SubscriptionInfo {
+    role: string;
+    status: string;
+    cancel_at_period_end: boolean;
+    current_period_end: Date;
+}
+
+export class AuthError extends Error {
+    code: string;
+    constructor(message: string, code: string) {
+        super(message);
+        this.name = 'AuthError';
+        this.code = code;
+    }
+}
+
+export interface UserProfile {
+    agreedToTerms: boolean;
+    termsAgreementDate?: Timestamp;
 }

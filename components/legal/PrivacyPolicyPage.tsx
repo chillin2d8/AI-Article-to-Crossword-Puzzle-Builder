@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { LandingPageLayout } from '../landing/LandingPageLayout';
 
@@ -7,7 +8,7 @@ interface LegalPageProps {
     pageType: 'legal';
 }
 
-export const PrivacyPolicyPage: React.FC<LegalPageProps> = ({ onStartAuth, pageType }) => {
+export const PrivacyPolicyPage: React.FC<LegalPageProps> = React.memo(({ onStartAuth, pageType }) => {
     const content = (
         <main className="container mx-auto px-6 py-12 max-w-4xl">
             <h1 className="text-4xl font-bold text-slate-900 mb-8">Privacy Policy</h1>
@@ -47,4 +48,4 @@ export const PrivacyPolicyPage: React.FC<LegalPageProps> = ({ onStartAuth, pageT
             {content}
         </LandingPageLayout>
     );
-};
+});

@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { LandingPageLayout } from './LandingPageLayout';
 
@@ -6,7 +7,7 @@ interface LandingPageProps {
   onStartAuth: () => void;
 }
 
-export const HomeschoolPage: React.FC<LandingPageProps> = ({ onStartAuth }) => {
+export const HomeschoolPage: React.FC<LandingPageProps> = React.memo(({ onStartAuth }) => {
   const heroContent = (
     <section className="text-center py-20 px-6 bg-white">
         <h1 className="text-5xl md:text-6xl font-extrabold text-slate-900 tracking-tight">From Kitchen Table to Grand Adventure.</h1>
@@ -36,4 +37,4 @@ export const HomeschoolPage: React.FC<LandingPageProps> = ({ onStartAuth }) => {
   return (
     <LandingPageLayout heroContent={heroContent} onStartAuth={onStartAuth} pageType="landing" />
   );
-};
+});

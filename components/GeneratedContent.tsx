@@ -1,7 +1,9 @@
 import React from 'react';
 import type { GeneratedData, UserTier } from '../types';
 import { Crossword } from './Crossword';
-import { UI_CONFIG, USER_TIERS } from '../config';
+import { WordSearch } from './WordSearch';
+import { WordScramble } from './WordScramble';
+import { UI_CONFIG } from '../config';
 
 interface GeneratedContentProps {
   data: GeneratedData;
@@ -9,8 +11,7 @@ interface GeneratedContentProps {
   onDownloadPdf: () => void;
   showSolutions: boolean;
   onToggleSolutions: () => void;
-  onReset: () => void;
-  onSummaryChange: (newSummary: string) => void;
+  onStartOver: () => void;
   pdfLoadingProgress?: { [key: string]: string };
 }
 
@@ -34,8 +35,7 @@ export const GeneratedContent: React.FC<GeneratedContentProps> = React.memo(({
     onDownloadPdf, 
     onToggleSolutions, 
     showSolutions,
-    onReset,
-    onSummaryChange,
+    onStartOver,
     pdfLoadingProgress
 }) => {
   const acrossClues = data.gridData.placedWords
@@ -49,8 +49,28 @@ export const GeneratedContent: React.FC<GeneratedContentProps> = React.memo(({
   const pdfProgressMessage = pdfLoadingProgress?.['PDF Generation'];
   const gradeLabel = UI_CONFIG.GRADE_LEVELS.find(g => g.value === data.gradeLevel)?.label || `${data.gradeLevel}th Grade`;
   
-  const tierConfig = USER_TIERS[tier];
   const isFreeTier = tier === 'Free';
+  const isWordSearch = data.puzzleType === 'wordsearch';
+  const isWordScramble = data.puzzleType === 'wordscramble';
+  const isLaunchEdition = data.puzzleType === 'launchedition';
+  
+  const crosswordTitle = `${data.title} - Crossword`;
+  const wordSearchTitle = `${data.title} - Word Search`;
+  // FIX: Corrected an unterminated template literal. Replaced the closing single quote with a backtick. This resolves numerous cascading type errors.
+  const wordScrambleTitle = `${data.title} - Word Scramble`;
+  const launchEditionTitle = `${data.title} - Launch Edition Packet`;
+
+  const hasCrosswordData = data.gridData.placedWords.length > 0;
+  const hasWordSearchData = (data.wordSearchData?.wordList?.length || 0) > 0;
+  const hasWordScrambleData = (data.wordScrambleData?.wordList?.length || 0) > 0;
+
+  const hasPuzzle = isLaunchEdition
+    ? (hasCrosswordData || hasWordSearchData || hasWordScrambleData)
+    : isWordSearch
+    ? hasWordSearchData
+    : isWordScramble
+    ? hasWordScrambleData
+    : hasCrosswordData;
 
   return (
     <>
@@ -60,18 +80,19 @@ export const GeneratedContent: React.FC<GeneratedContentProps> = React.memo(({
           <h2 className="text-2xl font-bold text-slate-800">{data.title} - Activity Sheet</h2>
           <div className="flex items-center justify-start sm:justify-end gap-2 flex-wrap">
               <button 
-                  onClick={onReset}
+                  onClick={onStartOver}
                   className="px-6 py-2 border border-slate-300 text-slate-700 font-semibold rounded-full hover:bg-slate-100 transition-colors text-sm"
               >
-                  Start Over
+                  Back to Dashboard
               </button>
-              <button 
-                  onClick={onToggleSolutions}
-                  disabled={data.gridData.placedWords.length === 0}
-                  className="px-6 py-2 border border-slate-300 text-slate-700 font-semibold rounded-full hover:bg-slate-100 transition-colors text-sm disabled:bg-slate-100 disabled:cursor-not-allowed"
-              >
-                  {showSolutions ? 'Hide Solutions' : 'Show Solutions'}
-              </button>
+              {hasPuzzle && (
+                <button 
+                    onClick={onToggleSolutions}
+                    className="px-6 py-2 border border-slate-300 text-slate-700 font-semibold rounded-full hover:bg-slate-100 transition-colors text-sm"
+                >
+                    {showSolutions ? 'Hide Solutions' : 'Show Solutions'}
+                </button>
+              )}
               <button
                   onClick={onDownloadPdf}
                   disabled={!!pdfProgressMessage}
@@ -84,7 +105,7 @@ export const GeneratedContent: React.FC<GeneratedContentProps> = React.memo(({
 
         {data.crosswordWarning && (
           <div className="my-4 text-center text-amber-800 bg-amber-100 p-4 rounded-lg border border-amber-200">
-            <p className="font-semibold">Crossword Notice</p>
+            <p className="font-semibold">Puzzle Notice</p>
             <p className="text-sm">{data.crosswordWarning}</p>
           </div>
         )}
@@ -110,50 +131,88 @@ export const GeneratedContent: React.FC<GeneratedContentProps> = React.memo(({
               <div className="md:w-2/5 md:float-right md:ml-6 mb-4">
                   <img src={data.imageUrlOne} alt="Selected representation for the summary" className="rounded-xl shadow-lg border-4 border-white w-full" />
               </div>
-              {tierConfig.permissions.canEditSummary ? (
-                  <textarea
-                    value={data.summary}
-                    onChange={(e) => onSummaryChange(e.target.value)}
-                    className="w-full h-64 p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition duration-200 resize-y bg-white text-slate-700 leading-relaxed text-sm text-justify"
-                  />
-              ) : (
-                <p className="text-slate-700 leading-relaxed text-sm text-justify">{data.summary}</p>
-              )}
+              <p className="text-slate-700 leading-relaxed text-sm text-justify">{data.summary}</p>
           </div>
         </div>
         
-        {data.gridData.placedWords.length > 0 && (
+        {hasPuzzle && (
           <div>
-              <h3 className="text-xl font-bold text-slate-800 mb-4">Crossword Puzzle</h3>
+              <h3 className="text-xl font-bold text-slate-800 mb-4 text-center">{
+                  isLaunchEdition ? launchEditionTitle :
+                  isWordSearch ? wordSearchTitle : 
+                  isWordScramble ? wordScrambleTitle : 
+                  crosswordTitle
+              }</h3>
               <div className="w-full max-w-lg mx-auto mb-6">
                   <img src={data.imageUrlTwo} alt="Selected representation for the puzzle" className="rounded-xl shadow-lg border-4 border-white" />
               </div>
-              <div className="flex justify-center">
-                  <Crossword gridData={data.gridData} showSolutions={showSolutions} />
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6 max-w-4xl mx-auto">
-                  <div>
-                  <h3 className="font-bold text-lg mb-2 text-slate-700">Across</h3>
-                  <ul className="space-y-2 text-sm text-slate-600">
-                      {acrossClues.map(word => (
-                      <li key={`across-${word.number}`} className="p-1">
-                          <span className="font-bold">{word.number}.</span> {word.clue}
-                      </li>
-                      ))}
-                  </ul>
+              { (data.puzzleType === 'crossword' || isLaunchEdition) && hasCrosswordData && (
+                  <div className={isLaunchEdition ? "mt-12 pt-8 border-t-2 border-dashed border-slate-300" : ""}>
+                      {isLaunchEdition && <h4 className="text-xl font-bold text-slate-800 mb-6 text-center">{crosswordTitle}</h4>}
+                      <div className="flex justify-center">
+                          <Crossword gridData={data.gridData} showSolutions={showSolutions} />
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6 max-w-4xl mx-auto">
+                          <div>
+                              <h3 className="font-bold text-lg mb-2 text-slate-700">Across</h3>
+                              <ul className="space-y-2 text-sm text-slate-600">
+                                  {acrossClues.map(word => (
+                                  <li key={`across-${word.number}`} className="p-1">
+                                      <span className="font-bold">{word.number}.</span> {word.clue_text}
+                                  </li>
+                                  ))}
+                              </ul>
+                          </div>
+                          <div>
+                              <h3 className="font-bold text-lg mb-2 text-slate-700">Down</h3>
+                              <ul className="space-y-2 text-sm text-slate-600">
+                                  {downClues.map(word => (
+                                  <li key={`down-${word.number}`} className="p-1">
+                                      <span className="font-bold">{word.number}.</span> {word.clue_text}
+                                  </li>
+                                  ))}
+                              </ul>
+                          </div>
+                      </div>
                   </div>
-                  <div>
-                  <h3 className="font-bold text-lg mb-2 text-slate-700">Down</h3>
-                  <ul className="space-y-2 text-sm text-slate-600">
-                      {downClues.map(word => (
-                      <li key={`down-${word.number}`} className="p-1">
-                          <span className="font-bold">{word.number}.</span> {word.clue}
-                      </li>
-                      ))}
-                  </ul>
+              )}
+
+              { (data.puzzleType === 'wordsearch' || isLaunchEdition) && hasWordSearchData && (
+                   <div className={isLaunchEdition ? "mt-12 pt-8 border-t-2 border-dashed border-slate-300" : ""}>
+                      {isLaunchEdition && <h4 className="text-xl font-bold text-slate-800 mb-6 text-center">{wordSearchTitle}</h4>}
+                      <div className="flex justify-center">
+                        <WordSearch 
+                            wordSearchData={data.wordSearchData}
+                            showSolutions={showSolutions} 
+                        />
+                      </div>
+                      <div className="mt-8 max-w-4xl mx-auto px-4">
+                          <h3 className="font-bold text-lg mb-4 text-slate-700 text-center">Words to Find</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 text-sm">
+                              {data.wordSearchData.wordList.map(item => (
+                                  <div key={item.word}>
+                                      <strong className="font-semibold text-slate-800 uppercase">{item.word}:</strong>
+                                      <span className="text-slate-600 italic ml-2">({item.clue_type}) {item.clue_text}</span>
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
                   </div>
-              </div>
+              )}
+
+              { (data.puzzleType === 'wordscramble' || isLaunchEdition) && hasWordScrambleData && (
+                  <div className={isLaunchEdition ? "mt-12 pt-8 border-t-2 border-dashed border-slate-300" : ""}>
+                      {isLaunchEdition && <h4 className="text-xl font-bold text-slate-800 mb-6 text-center">{wordScrambleTitle}</h4>}
+                      <div className="max-w-4xl mx-auto">
+                        <WordScramble 
+                          wordScrambleData={data.wordScrambleData}
+                          showSolutions={showSolutions}
+                        />
+                      </div>
+                  </div>
+              )}
+
           </div>
         )}
       </div>
